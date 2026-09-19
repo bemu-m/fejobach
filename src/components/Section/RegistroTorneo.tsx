@@ -304,7 +304,7 @@ export default function RegistroTorneo() {
 
           <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-px bg-neutral-800 border border-neutral-800 rounded-lg overflow-hidden">
             {[
-              { icon: MapPin, label: "Lugar", value: "Por definir" },
+              { icon: MapPin, label: "Lugar", value: "Parque: La Gloria, Tuxtla Gutiérrez" },
               { icon: Clock, label: "Horario", value: "9:30 AM – 4:00 PM" },
               { icon: Wallet, label: "Inscripción", value: "$250 / equipo" },
               { icon: Trophy, label: "Premiación", value: "3:30 PM" },

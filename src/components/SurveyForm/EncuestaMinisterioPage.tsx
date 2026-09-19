@@ -1,7 +1,7 @@
 import SurveyForm from "./SurveyForm";
 import { Answers } from "./types";
 
-const SHEETS_URL = "https://script.google.com/macros/s/AKfycbx_yR5JB0Fw9vJeqKGSOvFAA3eFNUivYc44xBiLFLVRvC_cVRj5napq8iED9W5wAeBH/exec";
+const SHEETS_URL = "https://script.google.com/macros/s/AKfycbx-HFO-Qhjj7cgHtMULoRJ2Cveqo-VDqIERiNfUKGMHZxnXVkrZjcr4YbBkIhU7hbzc/exec";
 
 export default function EncuestaMinisterioPage() {
   async function handleSubmit(answers: Answers) {
