@@ -19,6 +19,7 @@ interface Categoria {
   nombre: string;
   minimo: number;
   label: string;
+  cerrada?: boolean;
 }
 
 interface ColorEquipo {
@@ -49,6 +50,7 @@ const CATEGORIAS: Categoria[] = [
     nombre: "Basquetbol",
     minimo: 6,
     label: "Mínimo 6 integrantes",
+    cerrada: true, // cupo lleno — cambia a false (o quita la línea) para reabrir
   },
   {
     id: "voleibol",
@@ -67,16 +69,11 @@ const COLORES: ColorEquipo[] = [
   { id: "morado", nombre: "Morado", hex: "#9333ea" },
   { id: "negro", nombre: "Negro", hex: "#171717" },
   { id: "blanco", nombre: "Blanco", hex: "#f5f5f5" },
-  { id: "aqua", nombre: "Aqua", hex: "#00ffff" },
-  { id: "brown", nombre: "Marrón", hex: "#a0522d" },
-  { id: "celeste", nombre: "Celeste", hex: "#add8e6" },
-  { id: "gris", nombre: "Gris", hex: "#808080" },
-  { id: "mostaza", nombre: "Mostaza", hex: "#d2b48c" },
 ];
 
 const CUPO_POR_CATEGORIA = 8;
 
-const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbx3lKUH5-FiWZuXXO6f5K33dMzugJAUPxNtduovgt91wKanTLvpIl3f196NkJma6939/exec";
+const GOOGLE_SHEETS_URL = "https://script.google.com/macros/s/AKfycbyZ0q0BHcGRml8Duozb9HHisBk_894xM5wRePcrdhRveEkHZzpJgtNNuvbuM2Is7fT2/exec";
 
 const EMAILJS_SERVICE_ID = "service_9zn70uh";
 const EMAILJS_TEMPLATE_ID = "template_uqyfn4n";
@@ -113,9 +110,11 @@ export default function RegistroTorneo() {
         const res = await fetch(`${GOOGLE_SHEETS_URL}?action=colores`);
         const data = await res.json();
         if (!cancelado && Array.isArray(data.ocupados)) {
+          // el script guarda nombres en minúsculas (ej. "rojo"); los comparamos por id
           setColoresOcupados(data.ocupados);
         }
       } catch (err) {
+        // si falla la consulta, simplemente no deshabilitamos nada — mejor eso que bloquear el formulario
         console.error("No se pudieron obtener los colores ocupados:", err);
       } finally {
         if (!cancelado) setCargandoColores(false);
@@ -135,6 +134,9 @@ export default function RegistroTorneo() {
     };
 
   const toggleCategoria = (id: CategoriaId) => {
+    const cat = CATEGORIAS.find((c) => c.id === id);
+    if (cat?.cerrada) return; // cupo lleno, no se puede seleccionar
+
     setForm((f) => {
       const yaEsta = f.categorias.includes(id);
       const categorias = yaEsta
@@ -176,6 +178,12 @@ export default function RegistroTorneo() {
 
     if (form.categorias.length === 0) {
       setError("Selecciona al menos una categoría.");
+      return;
+    }
+
+    const categoriaCerradaElegida = categoriasSeleccionadas.find((c) => c.cerrada);
+    if (categoriaCerradaElegida) {
+      setError(`${categoriaCerradaElegida.nombre} ya alcanzó su cupo máximo.`);
       return;
     }
 
@@ -234,7 +242,8 @@ export default function RegistroTorneo() {
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payloadSheets),
       });
-
+      // Con mode "no-cors" no podemos leer la respuesta, así que asumimos éxito
+      // si el fetch no lanzó error de red.
       void resSheets;
 
       try {
@@ -242,13 +251,15 @@ export default function RegistroTorneo() {
           publicKey: EMAILJS_PUBLIC_KEY,
         });
       } catch (emailErr) {
-
+        // eslint-disable-next-line no-console
         console.error("EmailJS error:", emailErr);
         setError(
           "El equipo se registró correctamente, pero el correo de aviso no pudo enviarse."
         );
       }
 
+      // Reflejamos el color como ocupado de inmediato en esta sesión (aviso visual,
+      // no hay validación del lado del servidor).
       setColoresOcupados((prev) =>
         prev.includes(form.color) ? prev : [...prev, form.color]
       );
@@ -304,7 +315,7 @@ export default function RegistroTorneo() {
 
           <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-px bg-neutral-800 border border-neutral-800 rounded-lg overflow-hidden">
             {[
-              { icon: MapPin, label: "Lugar", value: "Parque: La Gloria, Tuxtla Gutiérrez" },
+              { icon: MapPin, label: "Lugar", value: "Caña Hueca" },
               { icon: Clock, label: "Horario", value: "9:30 AM – 4:00 PM" },
               { icon: Wallet, label: "Inscripción", value: "$250 / equipo" },
               { icon: Trophy, label: "Premiación", value: "3:30 PM" },
@@ -344,16 +355,23 @@ export default function RegistroTorneo() {
                 key={cat.id}
                 type="button"
                 onClick={() => toggleCategoria(cat.id)}
+                disabled={cat.cerrada}
                 aria-pressed={activa}
                 className={`text-left rounded-xl border p-6 transition-colors ${
-                  activa
+                  cat.cerrada
+                    ? "border-neutral-800 bg-neutral-900/30 opacity-50 cursor-not-allowed"
+                    : activa
                     ? "border-[#ff6a13] bg-[#ff6a13]/10"
                     : "border-neutral-800 bg-neutral-900/50 hover:border-neutral-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-4">
-                  <span className="font-mono-sport text-xs uppercase tracking-widest text-neutral-500">
-                    {CUPO_POR_CATEGORIA} equipos
+                  <span
+                    className={`font-mono-sport text-xs uppercase tracking-widest ${
+                      cat.cerrada ? "text-red-400" : "text-neutral-500"
+                    }`}
+                  >
+                    {cat.cerrada ? "Cupo lleno" : `${CUPO_POR_CATEGORIA} equipos`}
                   </span>
                   <span
                     className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
@@ -455,9 +473,13 @@ export default function RegistroTorneo() {
                         type="button"
                         key={cat.id}
                         onClick={() => toggleCategoria(cat.id)}
+                        disabled={cat.cerrada}
                         aria-pressed={activa}
+                        title={cat.cerrada ? "Cupo lleno" : undefined}
                         className={`font-body text-sm rounded-lg px-3 py-2.5 border transition-colors ${
-                          activa
+                          cat.cerrada
+                            ? "border-neutral-800 text-neutral-600 opacity-50 cursor-not-allowed line-through"
+                            : activa
                             ? "border-[#ff6a13] bg-[#ff6a13]/10 text-white"
                             : "border-neutral-800 text-neutral-400 hover:border-neutral-700"
                         }`}
@@ -469,6 +491,14 @@ export default function RegistroTorneo() {
                 </div>
                 <p className="font-body text-xs text-neutral-500 mt-1.5">
                   Puedes elegir más de una — algunos equipos participan en 2 o incluso las 3.
+                  {CATEGORIAS.some((c) => c.cerrada) && (
+                    <span className="block text-red-400 mt-1">
+                      {CATEGORIAS.filter((c) => c.cerrada)
+                        .map((c) => c.nombre)
+                        .join(", ")}{" "}
+                      ya {CATEGORIAS.filter((c) => c.cerrada).length > 1 ? "alcanzaron" : "alcanzó"} su cupo máximo.
+                    </span>
+                  )}
                 </p>
               </div>
 
